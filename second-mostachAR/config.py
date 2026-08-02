@@ -42,22 +42,26 @@ from crewai import LLM
 
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# قراءة مفتاح Hugging Face بدلاً من Groq
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
 
-if not GROQ_API_KEY:
+if not HUGGINGFACE_TOKEN:
     raise ValueError(
-        "GROQ_API_KEY غير موجود في ملف .env. "
-        "تأكدي من إضافة السطر: GROQ_API_KEY=gsk_..."
+        "HUGGINGFACE_TOKEN غير موجود في ملف .env أو في إعدادات Render. "
+        "تأكدي من إضافة السطر: HUGGINGFACE_TOKEN=hf_..."
     )
 
+# اسم النموذج الخاص بكِ على Hugging Face
+MY_DIALECT_MODEL = "huggingface/zineb-bn/Qwen2.5-7B-Arabic-Dialects"
 
-def get_llm(model_name: str = "groq/llama-3.3-70b-versatile", temperature: float = 0.3):
+
+def get_llm(model_name: str = MY_DIALECT_MODEL, temperature: float = 0.3):
     """
-    يرجع نسخة مهيأة من crewai.LLM جاهزة للاستخدام في أي وكيل.
+    يرجع نسخة مهيأة من crewai.LLM تستخدم نموذجكِ المدرب على Hugging Face.
     """
     return LLM(
         model=model_name,
-        api_key=GROQ_API_KEY,
+        api_key=HUGGINGFACE_TOKEN,
         temperature=temperature,
     )
 
