@@ -229,10 +229,6 @@ st.markdown(
     .stFormSubmitButton button:hover {
         box-shadow: 0 4px 16px color-mix(in srgb, var(--teal) 45%, transparent) !important;
     }
-    /* Re-theme native Streamlit widgets so they follow the light/dark toggle
-       instead of staying on Streamlit's built-in dark styling (which made
-       dropdowns/selects look stuck black with a gold/yellow accent even in
-       light mode). */
     [data-baseweb="select"] > div,
     [data-baseweb="base-input"] {
         background: var(--secondary-background-color) !important;
@@ -344,7 +340,6 @@ st.markdown(
         padding: 3px 12px;
     }
 
-    /* Sidebar brand: logo and title are intentionally separated */
     .sidebar-brand-logo {
         display: flex !important;
         justify-content: center !important;
@@ -613,8 +608,6 @@ def _build_transcript_txt(conv: dict) -> str:
 
 
 def _pdf_safe_text(text: str) -> str:
-    """يحوّل أي نص لصيغة آمنة لخط Helvetica الافتراضي في fpdf2 (بدون خط
-    عربي Unicode مضمّن)، بدل ما يطيح البرنامج بخطأ FPDFUnicodeEncodingException."""
     try:
         return text.encode("latin-1", "replace").decode("latin-1")
     except Exception:
@@ -622,12 +615,6 @@ def _pdf_safe_text(text: str) -> str:
 
 
 def _build_transcript_pdf(conv: dict) -> bytes:
-    """
-    يبني PDF بسيط لكامل المحادثة. ملاحظة: fpdf2 بدون خط عربي Unicode مضمّن
-    (زي Amiri أو Cairo) ما يعرض العربي بشكل صحيح (اتجاه/تشكيل الحروف).
-    للحصول على PDF عربي دقيق شكلاً، لازم إضافة ملف خط .ttf عربي حقيقي
-    عبر pdf.add_font(...) — هذا أبسط تنفيذ ممكن كنقطة بداية.
-    """
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", size=12)
@@ -849,162 +836,85 @@ def render_chat_app():
                 st.session_state.confirm_clear_all = True
                 st.rerun()
         else:
-            st.warning("متأكد؟ هذا الإجراء يمسح كل المحادثات نهائياً.")
-            yes_col, no_col = st.columns(2)
-            with yes_col:
-                if st.button("نعم، امسح الكل", key="confirm_clear_all_btn", use_container_width=True, icon=":material/check:"):
-                    _clear_err = delete_all_conversations(st.session_state.user.id)
-                    if _clear_err:
-                        st.session_state.conversations_load_error = _clear_err
+            st.warning("هل أنت متأكد من مسح جميع المحادثات؟")
+            col_yes, col_no = st.columns(2)
+            with col_yes:
+                if st.button("نعم", key="confirm_yes_btn", use_container_width=True):
+                    _err = delete_all_conversations(st.session_state.user.id)
+                    if _err:
+                        st.session_state.conversations_load_error = _err
                     st.session_state.conversations = {}
                     new_conversation()
                     st.session_state.confirm_clear_all = False
                     st.rerun()
-            with no_col:
-                if st.button("إلغاء", key="cancel_clear_all_btn", use_container_width=True, icon=":material/close:"):
+            with col_no:
+                if st.button("لا", key="confirm_no_btn", use_container_width=True):
                     st.session_state.confirm_clear_all = False
                     st.rerun()
 
         st.divider()
 
-        st.markdown(
-            '<p class="sidebar-user-status"><span class="status-dot"></span> المستخدم النشط</p>',
-            unsafe_allow_html=True,
-        )
-        with st.expander(st.session_state.user.email, icon=":material/person:"):
-            if st.button("تسجيل الخروج", use_container_width=True, key="logout_btn", icon=":material/logout:"):
+        # عرض معلومات المستخدم وزر الخروج
+        if st.session_state.user:
+            user_email = getattr(st.session_state.user, "email", "مستخدم")
+            st.markdown(f'<div class="sidebar-user-status"><span class="status-dot"></span>متصل</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sidebar-user-email" title="{user_email}">{user_email}</div>', unsafe_allow_html=True)
+            if st.button("تسجيل الخروج", key="sign_out_btn", use_container_width=True, icon=":material/logout:"):
                 sign_out()
                 st.session_state.user = None
                 st.session_state.conversations = {}
                 st.rerun()
 
-    with st.container(key="chat_area"):
-        
-        st.title("AlmostachAR")
-        st.markdown('<div class="title-rule"></div>', unsafe_allow_html=True)
 
-        if not current["messages"]:
-            st.markdown(
-                """
-                <div class="intro-block">
-                مرحباً، أنا <b>AlmostachAR</b>، مستشار ذكي لبناء نماذج معالجة اللغة
-                العربية الطبيعية
-                <br><br>
-                يمكن طرح أي سؤال عام، أو إرفاق ملف بيانات من صندوق الكتابة
-                وطلب فحصه، تنظيفه، اقتراح نموذج مناسب له، أو أي أمر آخر
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        for _msg_idx, message in enumerate(current["messages"]):
-            with st.container(key=f"msg_{_msg_idx}"):
-                if message["role"] == "user":
-                    st.markdown(
-                        f"<style>"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessage'] {{ "
-                        f"direction: rtl !important; display: flex !important; "
-                        f"flex-direction: row !important; justify-content: flex-start !important; }}"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] {{ "
-                        f"background: #E8F3FE !important; "
-                        f"border: none !important; max-width: 72% !important; color: #18324A !important; "
-                        f"margin-inline-end: auto !important; margin-inline-start: 0 !important; "
-                        f"border-radius: 18px 18px 5px 18px !important; "
-                        f"padding: 12px 18px !important; box-shadow: none !important; }}"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] p, "
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] li {{ "
-                        f"color: #18324A !important; font-size: 15px !important; line-height: 1.9 !important; }}"
-                        f"</style>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f"<style>"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessage'] {{ "
-                        f"direction: rtl !important; display: flex !important; "
-                        f"flex-direction: row !important; justify-content: flex-end !important; }}"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] {{ "
-                        f"background: transparent !important; border: none !important; "
-                        f"max-width: 92% !important; margin-inline-start: auto !important; "
-                        f"margin-inline-end: 0 !important; padding: 10px 16px !important; "
-                        f"box-shadow: none !important; border-radius: 0 !important; }}"
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] p, "
-                        f".st-key-msg_{_msg_idx} [data-testid='stChatMessageContent'] li {{ "
-                        f"color: var(--text-color) !important; font-size: 15px !important; line-height: 1.9 !important; }}"
-                        f"</style>",
-                        unsafe_allow_html=True,
-                    )
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-
-        prompt = st.chat_input(
-            "اكتب رسالة أو أرفق ملفاً...",
-            accept_file=True,
-            file_type=["csv", "xlsx", "xls", "txt", "pdf", "docx", "doc", "png", "jpg", "jpeg"],
-        )
-
-        if prompt:
-            user_text = prompt.text if hasattr(prompt, "text") else prompt["text"]
-            uploaded_files = prompt.files if hasattr(prompt, "files") else prompt["files"]
-
-            if uploaded_files:
-                raw_dir = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "data", "raw"
-                )
-                os.makedirs(raw_dir, exist_ok=True)
-                uploaded_file = uploaded_files[0]
-                save_path = os.path.join(raw_dir, uploaded_file.name)
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.session_state.uploaded_file_path = save_path
-
-            if not user_text and uploaded_files:
-                user_text = f"تم إرفاق الملف: {uploaded_files[0].name}"
-
-            if user_text:
-                if current["title"] == "محادثة جديدة":
-                    current["title"] = user_text.strip()[:28] + ("…" if len(user_text.strip()) > 28 else "")
-
-                current["messages"].append({"role": "user", "content": user_text})
-
-                history_lines = current["history"].strip().split("\n\n")
-                trimmed_history = "\n\n".join(history_lines[-6:])
-
-                _specialty_hint = (
-                    "" if st.session_state.get("specialty_choice") == "عام (تلقائي)"
-                    else st.session_state.get("specialty_choice", "")
-                )
-
-                try:
-                    response = run_chat_turn(
-                        user_message=user_text,
-                        conversation_history=trimmed_history,
-                        file_path=st.session_state.uploaded_file_path,
-                        temperature=st.session_state.get("temperature", 0.4),
-                        depth=st.session_state.get("depth", "مفصل"),
-                        specialty_hint=_specialty_hint,
-                    )
-                except Exception as e:
-                    response = f"حدث خطأ: {str(e)}"
-
-                current["messages"].append({"role": "assistant", "content": response})
-                current["history"] += f"المستخدم: {user_text}\nAlmostachAR: {response}\n\n"
-
-                _save_err = upsert_conversation(
-                    user_id=st.session_state.user.id,
-                    conv_id=st.session_state.current_conversation_id,
-                    title=current["title"],
-                    messages=current["messages"],
-                    history=current["history"],
-                )
-                if _save_err:
-                    st.session_state.conversations_load_error = _save_err
-
-                st.rerun()
-
-
+# --- تشغيل التطبيق الرئيسي ---
 if st.session_state.user is None:
     render_login_page()
 else:
     render_chat_app()
+
+    # عرض الواجهة الرئيسية للمحادثة
+    st.markdown("<h1>AlmostachAR — المستشار</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="title-rule"></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="intro-block"><p>مرحباً بك! أنا مساعدك الذكي المتخصص في هندسة معالجة اللغة العربية الطبيعية (NLP). اطرح سؤالك أو شاركني مشروعك لنبدأ العمل.</p></div>',
+        unsafe_allow_html=True,
+    )
+
+    current_conv = st.session_state.conversations[st.session_state.current_conversation_id]
+
+    for message in current_conv["messages"]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("اكتب رسالتك هنا..."):
+        current_conv["messages"].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("جاري التفكير وتحليل الطلب..."):
+                try:
+                    # استدعاء الـ Orchestrator أو المعالج الخاص بالوكلاء
+                    response_text = run_chat_turn(
+                        prompt=prompt,
+                        history=current_conv.get("history", ""),
+                        specialty=st.session_state.get("specialty_choice", "عام (تلقائي)"),
+                        temperature=st.session_state.get("temperature", 0.4),
+                        depth=st.session_state.get("depth", "مفصل"),
+                        file_path=st.session_state.get("uploaded_file_path", "")
+                    )
+                except Exception as e:
+                    response_text = f"عذراً، حدث خطأ أثناء معالجة طلبك: {str(e)}"
+                
+                st.markdown(response_text)
+                current_conv["messages"].append({"role": "assistant", "content": response_text})
+                current_conv["updated_at"] = datetime.now(timezone.utc).isoformat()
+                
+                # تحديث عنوان المحادثة تلقائياً إذا كانت المحادثة جديدة
+                if current_conv["title"] == "محادثة جديدة" and len(prompt) > 3:
+                    current_conv["title"] = prompt[:30] + ("..." if len(prompt) > 30 else "")
+
+                # حفظ المحادثة في قاعدة البيانات إذا كان المستخدم مسجلاً
+                if st.session_state.user:
+                    upsert_conversation(st.session_state.user.id, st.session_state.current_conversation_id, current_conv)
+        st.rerun()
