@@ -12,3 +12,4 @@ requests
 beautifulsoup4
 litellm
 chardet
+camel-tools
