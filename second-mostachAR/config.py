@@ -1,9 +1,18 @@
 # إعدادات المشروع المركزية وتحميل متغيرات البيئة
 
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
-
 import litellm
+
+# ضمان ضبط مسار المشروع الأساسي في sys.path لتعمل جميع الاستيرادات بسلاسة
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.append(str(BASE_DIR))
+
+# تحميل متغيرات البيئة من ملف .env
+load_dotenv()
 
 _original_completion = litellm.completion
 _original_acompletion = litellm.acompletion
@@ -40,8 +49,6 @@ litellm.acompletion = _patched_acompletion
 
 from crewai import LLM
 
-load_dotenv()
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
@@ -50,9 +57,6 @@ if not GROQ_API_KEY:
         "تأكدي من إضافة السطر: GROQ_API_KEY=gsk_..."
     )
 
-# ملاحظة: llama-3.3-70b-versatile تم إيقافه (deprecated) من Groq بتاريخ
-# 17 يونيو 2026. النموذج الحالي الموصى به رسمياً بديلاً له لمهام النص العامة
-# ودعم استدعاء الأدوات (Tool Calling) هو openai/gpt-oss-120b.
 DEFAULT_MODEL_NAME = "groq/openai/gpt-oss-120b"
 
 
@@ -67,7 +71,6 @@ def get_llm(model_name: str = DEFAULT_MODEL_NAME, temperature: float = 0.3):
     )
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 DATA_PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 KNOWLEDGE_BASE_DIR = os.path.join(BASE_DIR, "knowledge_base")
