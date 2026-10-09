@@ -10,3 +10,4 @@ openai
 fpdf2
 requests
 beautifulsoup4
+litellm
