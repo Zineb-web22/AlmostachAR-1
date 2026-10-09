@@ -1,10 +1,16 @@
 import os
 import sys
+from pathlib import Path
+
+# ضبط المسار الصحيح لجذر المشروع قبل أي استيراد لضمان رؤية المجلدات مثل agents و config
+root_dir = Path(__file__).resolve().parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 import uuid
 from datetime import datetime, timezone
 import streamlit as st
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agents.orchestrator import run_chat_turn
 from auth import sign_up, sign_in, sign_out, get_google_oauth_url, sign_in_with_google_code, get_client
 from db import (
@@ -854,7 +860,6 @@ def render_chat_app():
 
         st.divider()
 
-        # عرض معلومات المستخدم وزر الخروج
         if st.session_state.user:
             user_email = getattr(st.session_state.user, "email", "مستخدم")
             st.markdown(f'<div class="sidebar-user-status"><span class="status-dot"></span>متصل</div>', unsafe_allow_html=True)
@@ -872,7 +877,6 @@ if st.session_state.user is None:
 else:
     render_chat_app()
 
-    # عرض الواجهة الرئيسية للمحادثة
     st.markdown("<h1>AlmostachAR — المستشار</h1>", unsafe_allow_html=True)
     st.markdown('<div class="title-rule"></div>', unsafe_allow_html=True)
     st.markdown(
@@ -894,7 +898,6 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("جاري التفكير وتحليل الطلب..."):
                 try:
-                    # استدعاء الـ Orchestrator أو المعالج الخاص بالوكلاء
                     response_text = run_chat_turn(
                         prompt=prompt,
                         history=current_conv.get("history", ""),
@@ -910,11 +913,9 @@ else:
                 current_conv["messages"].append({"role": "assistant", "content": response_text})
                 current_conv["updated_at"] = datetime.now(timezone.utc).isoformat()
                 
-                # تحديث عنوان المحادثة تلقائياً إذا كانت المحادثة جديدة
                 if current_conv["title"] == "محادثة جديدة" and len(prompt) > 3:
                     current_conv["title"] = prompt[:30] + ("..." if len(prompt) > 30 else "")
 
-                # حفظ المحادثة في قاعدة البيانات إذا كان المستخدم مسجلاً
                 if st.session_state.user:
                     upsert_conversation(st.session_state.user.id, st.session_state.current_conversation_id, current_conv)
         st.rerun()
