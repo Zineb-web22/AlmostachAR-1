@@ -10,6 +10,6 @@ openai
 fpdf2
 requests
 beautifulsoup4
-litellm
+litellm==1.40.0
 chardet
 camel-tools
